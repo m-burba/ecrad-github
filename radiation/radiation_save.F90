@@ -237,6 +237,18 @@ contains
              &   units_str="W m-2", &
              &   long_name="Downwelling direct shortwave flux")
       end if
+      if (config%do_sw_direct_true) then
+        call out_file%define_variable("flux_dn_direct_sw_true", &
+             &   dim1_name="column", &
+             &   units_str="W m-2", &
+             &   long_name="Downwelling direct shortwave true flux")
+        if (config%do_clear) then
+          call out_file%define_variable("flux_dn_direct_sw_true_clear", &
+               &   dim1_name="column", &
+               &   units_str="W m-2", &
+               &   long_name="Downwelling direct shortwave true clear-sky flux")
+        end if
+      end if
       if (config%do_clear) then
         call out_file%define_variable("flux_up_sw_clear", &
              &   dim2_name="column", dim1_name="half_level", &
@@ -393,6 +405,12 @@ contains
         if (config%do_sw_direct) then
           call out_file%put("flux_dn_direct_sw_clear", flux%sw_dn_direct_clear)
         end if
+        if (config%do_sw_direct_true) then
+          call out_file%put("flux_dn_direct_sw_true_clear", flux%sw_dn_direct_true_clear)
+        end if
+      end if
+      if (config%do_sw_direct_true) then
+        call out_file%put("flux_dn_direct_sw_true", flux%sw_dn_direct_true)
       end if
 
       if (config%do_save_spectral_flux) then

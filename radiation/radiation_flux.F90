@@ -108,6 +108,11 @@ module radiation_flux
      real(jprb), allocatable, dimension(:,:) :: &
           &  lw_derivatives
 
+     ! shortwave down direct radiation at surface without delta Eddington
+     ! dims: col
+     real(jprb), allocatable, dimension(:) :: &
+          &  sw_dn_direct_true, sw_dn_direct_true_clear
+
    contains
      procedure :: allocate   => allocate_flux_type
      procedure :: deallocate => deallocate_flux_type
@@ -207,6 +212,12 @@ contains
       allocate(this%sw_dn(istartcol:iendcol,nlev+1))
       if (config%do_sw_direct) then
         allocate(this%sw_dn_direct(istartcol:iendcol,nlev+1))
+      end if
+      if (config%do_sw_direct_true) then
+        allocate(this%sw_dn_direct_true(istartcol:iendcol))
+        if(config%do_clear) then
+          allocate(this%sw_dn_direct_true_clear(istartcol:iendcol))
+        end if
       end if
       if (config%do_clear) then
         allocate(this%sw_up_clear(istartcol:iendcol,nlev+1))
@@ -328,6 +339,10 @@ contains
       if (allocated(this%sw_up_clear))  deallocate(this%sw_up_clear)
       if (allocated(this%sw_dn_clear))  deallocate(this%sw_dn_clear)
       if (allocated(this%sw_dn_direct)) deallocate(this%sw_dn_direct)
+      if (allocated(this%sw_dn_direct_true)) &
+           &   deallocate(this%sw_dn_direct_true)
+      if (allocated(this%sw_dn_direct_true_clear)) &
+           &   deallocate(this%sw_dn_direct_true_clear)
       if (allocated(this%sw_dn_direct_clear)) &
            &   deallocate(this%sw_dn_direct_clear)
     end if
@@ -682,6 +697,7 @@ contains
          & .or. out_of_bounds_2d(this%sw_up, 'sw_up', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn, 'sw_dn', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn_direct, 'sw_dn_direct', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
+         ! MFB TODO needed? & .or. out_of_bounds_2d(this%sw_dn_direct, 'sw_dn_direct', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%lw_derivatives, 'lw_derivatives', 0.0_jprb, 1.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn_surf_band, 'sw_dn_surf_band', 0.0_jprb, 1500.0_jprb, &
          &                       .false., j1=istartcol, j2=iendcol) &

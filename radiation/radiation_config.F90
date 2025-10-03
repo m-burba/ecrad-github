@@ -279,6 +279,14 @@ module radiation_config
     ! .true. is not compatible with the SPARTACUS solver.
     logical :: do_sw_delta_scaling_with_gases = .false.
 
+    ! Compute diagnostic shortwave direct output with
+    ! no delta eddington applied (0.)
+    ! or for a specific opening angle defining 'direct' radiation
+    ! (angle not implemented yet)
+    ! this feature is off by default
+    logical    :: do_sw_direct_true = .false.
+    real(jprb) :: direct_true_angle = 0.0_jprb
+
     ! Codes describing the gas model
     integer :: i_gas_model_sw = IGasModelIFSRRTMG
     integer :: i_gas_model_lw = IGasModelIFSRRTMG
@@ -625,6 +633,12 @@ module radiation_config
     ! and zero otherwise.
     integer :: n_g_lw_if_scattering = 0, n_bands_lw_if_scattering = 0
 
+    ! Dimension to allow optional computation of direct solar
+    ! without delta-Eddington
+    ! 0 means: turned off direct computation with delta E
+    integer :: n_g_sw_if_direct_true = 0
+    integer :: n_bands_sw_if_direct_true = 0
+
     ! Treat clouds as horizontally homogeneous within the gribox
     logical :: is_homogeneous = .false.
 
@@ -677,7 +691,7 @@ contains
     ! directly onto members of the config_type derived type
 
     ! To be read from the radiation_config namelist
-    logical :: do_sw, do_lw, do_clear, do_sw_direct
+    logical :: do_sw, do_lw, do_clear, do_sw_direct, do_sw_direct_true
     logical :: do_3d_effects, use_expm_everywhere, use_aerosols
     logical :: use_general_cloud_optics, use_general_aerosol_optics
     logical :: do_lw_side_emissivity
@@ -727,7 +741,7 @@ contains
 
     integer :: iunit ! Unit number of namelist file
 
-    namelist /radiation/ do_sw, do_lw, do_sw_direct, &
+    namelist /radiation/ do_sw, do_lw, do_sw_direct, do_sw_direct_true, &
          &  do_3d_effects, do_lw_side_emissivity, do_clear, &
          &  do_save_radiative_properties, sw_entrapment_name, sw_encroachment_name, &
          &  do_3d_lw_multilayer_effects, do_fu_lw_ice_optics_bug, &
@@ -771,6 +785,7 @@ contains
     do_sw = this%do_sw
     do_lw = this%do_lw
     do_sw_direct = this%do_sw_direct
+    do_sw_direct_true = this%do_sw_direct_true
     do_3d_effects = this%do_3d_effects
     do_3d_lw_multilayer_effects = this%do_3d_lw_multilayer_effects
     do_lw_side_emissivity = this%do_lw_side_emissivity
@@ -934,6 +949,7 @@ contains
     this%do_sw = do_sw
     this%do_clear = do_clear
     this%do_sw_direct = do_sw_direct
+    this%do_sw_direct_true = do_sw_direct_true
     this%do_3d_effects = do_3d_effects
     this%do_3d_lw_multilayer_effects = do_3d_lw_multilayer_effects
     this%do_lw_side_emissivity = do_lw_side_emissivity
@@ -1357,6 +1373,14 @@ contains
       this%is_homogeneous = .true.
     end if
 
+    ! TODO: are there more restrictions?
+    if (this%do_sw_direct_true .and. ( .not. this%i_solver_sw == ISolverMcICA .or. & 
+        & this%use_general_cloud_optics  .or. this%i_gas_model_sw == IGasModelMonochromatic)) then 
+       write(nulerr,'(a)') '*** Error: shortwave direct true is only implemented with McICA,' &
+         & // 'and not for general cloud optics and monochromatic gas. ' 
+       call radiation_abort('Radiation configuration error')
+    end if
+
     this%is_consolidated = .true.
 
     if (lhook) call dr_hook('radiation_config:consolidate',1,hook_handle)
@@ -1372,7 +1396,7 @@ contains
   subroutine set_config(config, directory_name, &
        &  do_lw, do_sw, &
        &  do_lw_aerosol_scattering, do_lw_cloud_scattering, &
-       &  do_sw_direct)
+       &  do_sw_direct, do_sw_direct_true)
 
     class(config_type), intent(inout):: config
     character(len=*), intent(in), optional  :: directory_name
@@ -1380,6 +1404,7 @@ contains
     logical, intent(in), optional           :: do_lw_aerosol_scattering
     logical, intent(in), optional           :: do_lw_cloud_scattering
     logical, intent(in), optional           :: do_sw_direct
+    logical, intent(in), optional           :: do_sw_direct_true
 
     if (present(do_lw)) then
        config%do_lw = do_lw
@@ -1403,6 +1428,10 @@ contains
 
     if (present(do_lw_cloud_scattering)) then
        config%do_lw_cloud_scattering = .true.
+    end if
+
+    if (present(do_sw_direct_true)) then
+       config%do_sw_direct_true = .true.
     end if
 
   end subroutine set_config

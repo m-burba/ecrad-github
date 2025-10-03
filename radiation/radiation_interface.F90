@@ -117,6 +117,18 @@ contains
       config%n_g_lw_if_scattering = config%n_g_lw
     end if
 
+    ! The direct radiation without delta-Eddington is optional
+    ! If do_sw_direct_true an additional shortwave optical depth
+    ! is needed. Otherwise, the dimension n_sw_if_direct_true
+    if (config%do_sw_direct_true) then
+       ! need mcica condiction?
+       config%n_g_sw_if_direct_true = config%n_g_sw
+       config%n_bands_sw_if_direct_true = config%n_bands_sw
+    else ! TODO should not be needed due initialization in config
+       config%n_g_sw_if_direct_true = 0
+       config%n_bands_sw_if_direct_true = 0
+    end if
+
     ! Consolidate the albedo/emissivity intervals with the shortwave
     ! and longwave spectral bands
     if (config%do_sw) then
@@ -279,6 +291,12 @@ contains
     real(jprb), dimension(config%n_bands_sw,nlev,istartcol:iendcol)   :: &
          &  od_sw_cloud, ssa_sw_cloud, g_sw_cloud
 
+    ! optional variables for shortwave direct radiation without delta-Eddington
+    real(jprb), dimension(config%n_bands_sw_if_direct_true,nlev,istartcol:iendcol)   :: &
+         &  od_sw_cloud_true
+    real(jprb), dimension(config%n_g_sw_if_direct_true,nlev,istartcol:iendcol)   :: &
+         &  od_sw_true
+
     ! The Planck function (emitted flux from a black body) at half
     ! levels
     real(jprb), dimension(config%n_g_lw,nlev+1,istartcol:iendcol) :: planck_hl
@@ -378,10 +396,14 @@ contains
           call cloud_optics(nlev, istartcol, iendcol, &
                &  config, thermodynamics, cloud, & 
                &  od_lw_cloud, ssa_lw_cloud, g_lw_cloud, &
-               &  od_sw_cloud, ssa_sw_cloud, g_sw_cloud)
+               &  od_sw_cloud, ssa_sw_cloud, g_sw_cloud, &
+               &  od_sw_cloud_true)
         end if
       end if ! do_clouds
 
+      if (config%do_sw_direct_true) then
+        od_sw_true(:,:,istartcol:iendcol) = od_sw(:,:,istartcol:iendcol)
+      end if
       if (config%use_aerosols) then
         if (config%i_gas_model_sw == IGasModelMonochromatic) then
 !          call add_aerosol_optics_mono(nlev,istartcol,iendcol, &
@@ -390,7 +412,8 @@ contains
         else
           call add_aerosol_optics(nlev,istartcol,iendcol, &
                &  config, thermodynamics, gas, aerosol, & 
-               &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw)
+               &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw, &
+               &  od_sw_true)
         end if
       else
         g_sw(:,:,istartcol:iendcol) = 0.0_jprb
@@ -467,7 +490,7 @@ contains
                &  config, single_level, cloud, & 
                &  od_sw, ssa_sw, g_sw, od_sw_cloud, ssa_sw_cloud, &
                &  g_sw_cloud, sw_albedo_direct, sw_albedo_diffuse, &
-               &  incoming_sw, flux)
+               &  incoming_sw, od_sw_true, od_sw_cloud_true, flux)
         else if (config%i_solver_sw == ISolverSPARTACUS) then
           ! Compute fluxes using the SPARTACUS shortwave solver
           call solver_spartacus_sw(nlev,istartcol,iendcol, &

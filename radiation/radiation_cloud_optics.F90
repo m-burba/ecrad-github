@@ -218,7 +218,8 @@ contains
   subroutine cloud_optics(nlev,istartcol,iendcol, &
        &  config, thermodynamics, cloud, &
        &  od_lw_cloud, ssa_lw_cloud, g_lw_cloud, &
-       &  od_sw_cloud, ssa_sw_cloud, g_sw_cloud)
+       &  od_sw_cloud, ssa_sw_cloud, g_sw_cloud, &
+       &  od_sw_true)
 
     use parkind1, only           : jprb
     use yomhook,  only           : lhook, dr_hook, jphook
@@ -274,6 +275,8 @@ contains
     real(jprb), dimension(config%n_bands_sw) :: &
          &  od_sw_liq, scat_od_sw_liq, g_sw_liq, &
          &  od_sw_ice, scat_od_sw_ice, g_sw_ice
+    real(jprb), dimension(config%n_bands_sw_if_direct_true,nlev,istartcol:iendcol),intent(inout) :: &
+         &  od_sw_true
 
     ! In-cloud water path of cloud liquid or ice (i.e. liquid or ice
     ! gridbox-mean water path divided by cloud fraction); kg m-2
@@ -301,6 +304,7 @@ contains
       ! Array-wise assignment
       od_lw_cloud  = 0.0_jprb
       od_sw_cloud  = 0.0_jprb
+      if (config%do_sw_direct_true) od_sw_true   = 0.0_jprb
       ssa_sw_cloud = 0.0_jprb
       g_sw_cloud   = 0.0_jprb
       if (config%do_lw_cloud_scattering) then
@@ -358,6 +362,11 @@ contains
                 write(nulerr,*) '*** Error: Unknown liquid model with code', &
                     &          config%i_liq_model
                 call radiation_abort()
+              end if
+
+              ! 
+              if (config%do_sw_direct_true) then
+                od_sw_true(:,jlev,jcol) = od_sw_true(:,jlev,jcol) + od_sw_liq
               end if
 
               ! Delta-Eddington scaling in the shortwave only
@@ -454,6 +463,10 @@ contains
                 write(nulerr,*) '*** Error: Unknown ice model with code', &
                     &          config%i_ice_model
                 call radiation_abort()
+              end if
+
+              if (config%do_sw_direct_true) then
+                od_sw_true(:,jlev,jcol) = od_sw_true(:,jlev,jcol) + od_sw_ice
               end if
 
               ! Delta-Eddington scaling in both longwave and shortwave

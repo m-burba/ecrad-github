@@ -42,7 +42,7 @@ contains
        &  config, single_level, cloud, & 
        &  od, ssa, g, od_cloud, ssa_cloud, g_cloud, &
        &  albedo_direct, albedo_diffuse, incoming_sw, &
-       &  flux)
+       &  od_true, od_cloud_true, flux)
 
     use parkind1, only           : jprb
     use yomhook,  only           : lhook, dr_hook, jphook
@@ -81,6 +81,11 @@ contains
     real(jprb), intent(in), dimension(config%n_g_sw,istartcol:iendcol) :: &
          &  albedo_direct, albedo_diffuse, incoming_sw
 
+    ! True (no delta-Eddington) direct optical depth
+    real(jprb), intent(in), dimension(config%n_g_sw_if_direct_true, nlev, istartcol:iendcol) :: &
+         & od_true
+    real(jprb), intent(in), dimension(config%n_bands_sw_if_direct_true, nlev,istartcol:iendcol)   :: &
+         &  od_cloud_true
     ! Output
     type(flux_type), intent(inout):: flux
 
@@ -102,6 +107,10 @@ contains
 
     ! Fluxes per g point
     real(jprb), dimension(config%n_g_sw, nlev+1) :: flux_up, flux_dn_diffuse, flux_dn_direct
+
+    ! direct true at the surface, spectral dimension only
+    real(jprb), dimension(config%n_g_sw_if_direct_true):: flux_dn_direct_true, flux_dn_direct_true_clear
+    real(jprb), dimension(config%n_g_sw_if_direct_true) :: od_total_true
 
     ! Combined gas+aerosol+cloud optical depth, single scattering
     ! albedo and asymmetry factor
@@ -181,6 +190,15 @@ contains
              &  albedo_diffuse(:,jcol), albedo_direct(:,jcol), spread(cos_sza,1,ng), &
              &  ref_clear, trans_clear, ref_dir_clear, trans_dir_diff_clear, &
              &  trans_dir_dir_clear, flux_up, flux_dn_diffuse, flux_dn_direct)
+
+        if (config%do_sw_direct_true) then
+          
+          flux_dn_direct_true_clear(:) = incoming_sw(:, jcol)
+          do jlev = 1, nlev ! sum levels, keep band dim, local var to store current col
+            flux_dn_direct_true_clear(:) = flux_dn_direct_true_clear(:) * & 
+              & exp(-od_true(:, jlev, jcol) / cos_sza )
+          end do
+        end if
         
         ! Sum over g-points to compute and save clear-sky broadband
         ! fluxes. Note that the built-in "sum" function is very slow,
@@ -241,7 +259,11 @@ contains
         flux%cloud_cover_sw(jcol) = total_cloud_cover
         
         if (total_cloud_cover >= config%cloud_fraction_threshold) then
-          ! Total-sky calculation
+          ! Total-sky calculation, recycle flux_dn_direct_true
+          if (config%do_sw_direct_true) then
+            flux_dn_direct_true(:) = incoming_sw(:, jcol)
+          end if
+
           do jlev = 1,nlev
             ! Compute combined gas+aerosol+cloud optical properties
             if (cloud%fraction(jcol,jlev) >= config%cloud_fraction_threshold) then
@@ -268,6 +290,10 @@ contains
                          &     / scat_od
                   end if
                 end if
+                if (config%do_sw_direct_true) then ! TODO: it isnt nice here
+                    od_total_true(jg) = od_true (jg,jlev,jcol) + od_scaling(jg,jlev) * & 
+                       &  od_cloud_true(config%i_band_from_reordered_g_sw(jg),jlev,jcol)
+                end if
               end do
 
               ! Apply delta-Eddington scaling to the cloud-aerosol-gas
@@ -293,6 +319,18 @@ contains
                 trans_dir_diff(jg,jlev) = trans_dir_diff_clear(jg,jlev)
                 trans_dir_dir(jg,jlev) = trans_dir_dir_clear(jg,jlev)
               end do
+              if (config%do_sw_direct_true) then
+                do jg = 1,ng
+                  od_total_true(jg) = od_true (jg,jlev,jcol) 
+                end do
+              end if
+
+            end if
+            if (config%do_sw_direct_true) then ! collapse levels, keep bands, for 1 col
+                flux_dn_direct_true(:) = flux_dn_direct_true(:) * & 
+                  & exp(-od_total_true(:) / cos_sza )
+                  ! TODO ask ROBIN this was the line until oct2
+                  ! & exp(-od_true(:, jlev, jcol) / cos_sza )
             end if
           end do
             
@@ -335,7 +373,19 @@ contains
             end if
           end do
 #endif
-          
+          ! spectral sum, fill into fluxtype for every col
+          if (config%do_sw_direct_true .and. config%do_clear) then
+            ! TODO there is an issue here: do_clear = False means flux%sw_dn_true_clear isnt allocated
+            ! so I split this up again. better ideas?
+
+            flux%sw_dn_direct_true_clear(jcol) = sum(flux_dn_direct_true_clear) * cos_sza
+            flux%sw_dn_direct_true(jcol) = total_cloud_cover * sum(flux_dn_direct_true) &
+                &  + (1.0_jprb - total_cloud_cover) * flux%sw_dn_direct_true_clear(jcol) * cos_sza
+
+          elseif (config%do_sw_direct_true .and. .not. config%do_clear) then
+            flux%sw_dn_direct_true(jcol) = (total_cloud_cover * sum(flux_dn_direct_true)  &
+                &  + (1.0_jprb - total_cloud_cover) * sum(flux_dn_direct_true_clear)) * cos_sza
+          end if
           ! Cloudy flux profiles currently assume completely overcast
           ! skies; perform weighted average with clear-sky profile
           do jlev = 1, nlev+1
@@ -361,6 +411,12 @@ contains
         else
           ! No cloud in profile and clear-sky fluxes already
           ! calculated: copy them over
+          if (config%do_sw_direct_true) then
+            flux%sw_dn_direct_true(jcol) = sum(flux_dn_direct_true_clear) * cos_sza
+            if (config%do_clear) then
+              flux%sw_dn_direct_true_clear(jcol) = sum(flux_dn_direct_true_clear) * cos_sza
+            end if
+          end if
           do jlev = 1, nlev+1
             flux%sw_up(jcol,jlev) = flux%sw_up_clear(jcol,jlev)
             flux%sw_dn(jcol,jlev) = flux%sw_dn_clear(jcol,jlev)
@@ -395,6 +451,9 @@ contains
           flux%sw_dn_diffuse_surf_clear_g(jg,jcol) = 0.0_jprb
           flux%sw_dn_direct_surf_clear_g(jg,jcol)  = 0.0_jprb
         end do
+        if (allocated(flux%sw_dn_direct_true)) flux%sw_dn_direct_true(jcol) = 0.0_jprb
+        if (allocated(flux%sw_dn_direct_true_clear)) & 
+                & flux%sw_dn_direct_true_clear(jcol) = 0.0_jprb
       end if ! Sun above horizon
 
     end do ! Loop over columns

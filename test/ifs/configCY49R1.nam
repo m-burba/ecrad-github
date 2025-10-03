@@ -32,6 +32,7 @@ do_write_double_precision = false,
 do_sw			= true,           ! Compute shortwave fluxes?
 do_lw			= true,           ! Compute longwave fluxes?
 do_sw_direct 		= true,           ! Compute direct downward shortwave fluxes?
+!do_sw_direct_true      = false
 do_clear		= true,           ! Compute clear-sky fluxes?
 directory_name		= "../../data",      ! Location of configuration files
 use_general_cloud_optics = false,

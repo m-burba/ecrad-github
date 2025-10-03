@@ -486,7 +486,7 @@ contains
   ! depth and scattering properties
   subroutine add_aerosol_optics(nlev,istartcol,iendcol, &
        &  config, thermodynamics, gas, aerosol, &
-       &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw)
+       &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw, od_sw_true)
 
     use parkind1,                      only : jprb
     use radiation_io,                  only : nulout, nulerr, radiation_abort
@@ -521,6 +521,8 @@ contains
          &   intent(inout) :: od_sw, ssa_sw
     real(jprb), dimension(config%n_g_sw,nlev,istartcol:iendcol), &
          &   intent(out)   :: g_sw
+    real(jprb), dimension(config%n_g_sw_if_direct_true, nlev,istartcol:iendcol), &
+         &     intent(inout) ::  od_sw_true
 
     ! Extinction optical depth, scattering optical depth and
     ! asymmetry-times-scattering-optical-depth for all the aerosols in
@@ -528,6 +530,10 @@ contains
     ! spectrum
     real(jprb), dimension(config%n_bands_sw,nlev) &
          &  :: od_sw_aerosol, scat_sw_aerosol, scat_g_sw_aerosol
+    
+    real(jprb), dimension(config%n_bands_sw_if_direct_true,nlev) &
+         &  :: od_sw_aerosol_true ! internal variable
+
     real(jprb), dimension(config%n_bands_lw,nlev) &
          &  :: od_lw_aerosol
     real(jprb), dimension(config%n_bands_lw_if_scattering,nlev) &
@@ -574,7 +580,7 @@ contains
       ! directly by the user
       call add_aerosol_optics_direct(nlev,istartcol,iendcol, &
            &  config, aerosol, &
-           &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw)
+           &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw, od_sw_true)
     else
       ! Aerosol mixing ratios have been provided
 
@@ -615,6 +621,7 @@ contains
 
         ! Reset temporary arrays
         od_sw_aerosol     = 0.0_jprb
+        od_sw_aerosol_true= 0.0_jprb
         scat_sw_aerosol   = 0.0_jprb
         scat_g_sw_aerosol = 0.0_jprb
         od_lw_aerosol     = 0.0_jprb
@@ -729,6 +736,10 @@ contains
           ! do_sw_delta_scaling_with_gases==.true. then the delta
           ! scaling is done to the cloud-aerosol-gas mixture inside
           ! the solver
+          if (config%do_sw_direct_true) then ! copy od, before in place delta eddington
+            od_sw_aerosol_true(:,:) = od_sw_aerosol
+            od_sw_true(:,:,jcol) = od_sw(:,:,jcol)
+          end if
           call delta_eddington_extensive_vec(config%n_bands_sw*nlev, od_sw_aerosol, &
                &                             scat_sw_aerosol, scat_g_sw_aerosol)
         end if
@@ -743,6 +754,9 @@ contains
             do jg = 1,config%n_g_sw
               local_scat = ssa_sw(jg,jlev,jcol)*od_sw(jg,jlev,jcol) + scat_sw_aerosol(jg,jlev)
               od_sw(jg,jlev,jcol) = od_sw(jg,jlev,jcol) + od_sw_aerosol(jg,jlev)
+              if (config%do_sw_direct_true) then
+                od_sw_true(jg,jlev,jcol) = od_sw_true(jg,jlev,jcol) + od_sw_aerosol_true(jg,jlev)
+              end if
               g_sw(jg,jlev,jcol) = scat_g_sw_aerosol(jg,jlev) / max(local_scat, 1.0e-24_jprb)
               ssa_sw(jg,jlev,jcol) = min(local_scat / max(od_sw(jg,jlev,jcol), 1.0e-24_jprb), 1.0_jprb)
             end do
@@ -766,6 +780,9 @@ contains
                 end if
                 ssa_sw(jg,jlev,jcol) = local_scat / local_od
                 od_sw (jg,jlev,jcol) = local_od
+                if (config%do_sw_direct_true) then
+                  od_sw_true(jg,jlev,jcol) = od_sw_true(jg,jlev,jcol) + od_sw_aerosol_true(iband,jlev)
+                end if
               end if
             end do
           end do
@@ -831,7 +848,7 @@ contains
   ! scattering properties
   subroutine add_aerosol_optics_direct(nlev,istartcol,iendcol, &
        &  config, aerosol, &
-       &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw)
+       &  od_lw, ssa_lw, g_lw, od_sw, ssa_sw, g_sw, od_sw_true)
 
     use parkind1,                      only : jprb
     use radiation_io,                  only : nulerr, radiation_abort
@@ -856,6 +873,10 @@ contains
          &   intent(inout) :: od_sw, ssa_sw
     real(jprb), dimension(config%n_g_sw,nlev,istartcol:iendcol), &
          &   intent(out)   :: g_sw
+    real(jprb), dimension(config%n_g_sw_if_direct_true,nlev,istartcol:iendcol), &
+         &   intent(inout) :: od_sw_true
+    real(jprb), dimension(config%n_bands_sw_if_direct_true,nlev) &
+         &  :: od_sw_aerosol_true ! internal variable
 
     ! Temporary extinction and scattering optical depths of aerosol
     ! plus gas
@@ -914,6 +935,9 @@ contains
               ! do_sw_delta_scaling_with_gases==.true. then the delta
               ! scaling is done to the cloud-aerosol-gas mixture
               ! inside the solver
+              if(config%do_sw_direct_true) then ! copy
+                od_sw_aerosol_true(jb, jlev) = od_sw_aerosol(jb, jlev)
+              end if
               call delta_eddington_extensive(od_sw_aerosol(jb,jlev), scat_sw_aerosol(jb,jlev), &
                    &                         scat_g_sw_aerosol(jb,jlev))
             end if
@@ -933,12 +957,21 @@ contains
               ! simply weights the aerosol asymmetry by the scattering
               ! optical depth
               g_sw(jg,jlev,jcol) = scat_g_sw_aerosol(iband,jlev) / local_scat
-              local_od = od_sw(jg,jlev,jcol) + od_sw_aerosol(iband,jlev)
               ssa_sw(jg,jlev,jcol) = local_scat / local_od
               od_sw (jg,jlev,jcol) = local_od
             end do
           end if
         end do
+        
+        if (config%do_sw_direct_true) then
+          do jlev = istartlev,iendlev
+            do jg = 1,config%n_g_sw
+              iband = config%i_band_from_reordered_g_sw(jg)
+              od_sw_true (jg,jlev,jcol) = od_sw_true(jg,jlev,jcol) + od_sw_aerosol_true(iband,jlev)
+            end do
+          end do
+        end if
+
       end do
 
     end if
