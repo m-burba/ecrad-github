@@ -1373,11 +1373,10 @@ contains
       this%is_homogeneous = .true.
     end if
 
-    ! TODO: are there more restrictions?
-    if (this%do_sw_direct_true .and. ( .not. this%i_solver_sw == ISolverMcICA .or. & 
-        & this%use_general_cloud_optics  .or. this%i_gas_model_sw == IGasModelMonochromatic)) then 
+    if (this%do_sw_direct_true .and. ( .not. this%i_solver_sw == ISolverMcICA .or. &
+        & this%use_general_cloud_optics  .or. this%i_gas_model_sw == IGasModelMonochromatic)) then
        write(nulerr,'(a)') '*** Error: shortwave direct true is only implemented with McICA,' &
-         & // 'and not for general cloud optics and monochromatic gas. ' 
+         & // 'and not for general cloud optics and monochromatic gas. '
        call radiation_abort('Radiation configuration error')
     end if
 

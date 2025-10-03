@@ -364,7 +364,6 @@ contains
                 call radiation_abort()
               end if
 
-              ! 
               if (config%do_sw_direct_true) then
                 od_sw_true(:,jlev,jcol) = od_sw_true(:,jlev,jcol) + od_sw_liq
               end if

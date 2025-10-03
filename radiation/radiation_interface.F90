@@ -121,12 +121,8 @@ contains
     ! If do_sw_direct_true an additional shortwave optical depth
     ! is needed. Otherwise, the dimension n_sw_if_direct_true
     if (config%do_sw_direct_true) then
-       ! need mcica condiction?
        config%n_g_sw_if_direct_true = config%n_g_sw
        config%n_bands_sw_if_direct_true = config%n_bands_sw
-    else ! TODO should not be needed due initialization in config
-       config%n_g_sw_if_direct_true = 0
-       config%n_bands_sw_if_direct_true = 0
     end if
 
     ! Consolidate the albedo/emissivity intervals with the shortwave

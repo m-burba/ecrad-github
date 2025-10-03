@@ -1,9 +1,7 @@
 INPUT = ecrad_meridian
 
 #DRIVER = totalview ../../bin/ecrad -a
-DRIVER =   ../../bin/ecrad
-# module load forge required
-#DRIVER =  forge ../../bin/ecrad
+DRIVER = ../../bin/ecrad
 IFS_DRIVER = ../../bin/ecrad_ifs
 IFS_DRIVER_BLOCKED = ../../bin/ecrad_ifs_blocked
 CHANGENAM = ../common/change_namelist.sh
@@ -211,7 +209,7 @@ test_direct_true:
 	$(CHANGENAM) $(CONFIG) config_direct_true.nam \
 		do_sw_direct_true=true
 	$(DRIVER) config_direct_true.nam $(INPUT).nc $(INPUT)_direct_true_out.nc
-	
+
 # Clean data files
 clean:
 	rm -f *_out.nc tmp*.nc radiative_properties*.nc inputs.nc sw_diag*nc \

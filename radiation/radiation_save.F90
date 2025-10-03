@@ -242,6 +242,7 @@ contains
              &   dim1_name="column", &
              &   units_str="W m-2", &
              &   long_name="Downwelling direct shortwave true flux")
+        !only implemented for mcica which works only with clear, so this is not needed
         if (config%do_clear) then
           call out_file%define_variable("flux_dn_direct_sw_true_clear", &
                &   dim1_name="column", &

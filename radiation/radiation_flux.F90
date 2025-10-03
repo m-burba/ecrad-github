@@ -682,7 +682,7 @@ contains
   function out_of_physical_bounds(this, istartcol, iendcol) result(is_bad)
 
     use yomhook,          only : lhook, dr_hook, jphook
-    use radiation_check,  only : out_of_bounds_2d
+    use radiation_check,  only : out_of_bounds_2d, out_of_bounds_1d
 
     class(flux_type), intent(inout) :: this
     integer, optional,intent(in) :: istartcol, iendcol
@@ -697,12 +697,17 @@ contains
          & .or. out_of_bounds_2d(this%sw_up, 'sw_up', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn, 'sw_dn', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn_direct, 'sw_dn_direct', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
-         ! MFB TODO needed? & .or. out_of_bounds_2d(this%sw_dn_direct, 'sw_dn_direct', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%lw_derivatives, 'lw_derivatives', 0.0_jprb, 1.0_jprb, .false., i1=istartcol, i2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn_surf_band, 'sw_dn_surf_band', 0.0_jprb, 1500.0_jprb, &
          &                       .false., j1=istartcol, j2=iendcol) &
          & .or. out_of_bounds_2d(this%sw_dn_surf_clear_band, 'sw_dn_surf_clear_band', 0.0_jprb, 1500.0_jprb, &
          &                       .false., j1=istartcol, j2=iendcol)
+    if (allocated(this%sw_dn_direct_true)) &
+         is_bad = is_bad  .or. out_of_bounds_1d(this%sw_dn_direct_true, &
+              &  'sw_dn_direct_true', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol)
+    if (allocated(this%sw_dn_direct_true_clear)) &
+         is_bad = is_bad  .or. out_of_bounds_1d(this%sw_dn_direct_true_clear, &
+              &  'sw_dn_direct_true_clear', 0.0_jprb, 1500.0_jprb, .false., i1=istartcol, i2=iendcol)
 
     if (lhook) call dr_hook('radiation_flux:out_of_physical_bounds',1,hook_handle)
 

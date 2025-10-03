@@ -530,9 +530,9 @@ contains
     ! spectrum
     real(jprb), dimension(config%n_bands_sw,nlev) &
          &  :: od_sw_aerosol, scat_sw_aerosol, scat_g_sw_aerosol
-    
+
     real(jprb), dimension(config%n_bands_sw_if_direct_true,nlev) &
-         &  :: od_sw_aerosol_true ! internal variable
+         &  :: od_sw_aerosol_true
 
     real(jprb), dimension(config%n_bands_lw,nlev) &
          &  :: od_lw_aerosol
@@ -962,7 +962,7 @@ contains
             end do
           end if
         end do
-        
+
         if (config%do_sw_direct_true) then
           do jlev = istartlev,iendlev
             do jg = 1,config%n_g_sw
