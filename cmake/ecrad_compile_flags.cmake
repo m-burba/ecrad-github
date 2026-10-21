@@ -6,19 +6,17 @@
 # granted to it by virtue of its status as an intergovernmental organisation
 # nor does it submit to any jurisdiction.
 
-# Capture ecbuild defaults and/or flags set by a toolchain
-set( ${PNAME}_Fortran_FLAGS "${${PNAME}_Fortran_FLAGS} ${ECBUILD_Fortran_FLAGS}" )
-set( ${PNAME}_Fortran_FLAGS_BIT "${${PNAME}_Fortran_FLAGS_BIT} ${ECBUILD_Fortran_FLAGS_BIT}" )
-set( ${PNAME}_Fortran_FLAGS_DEBUG "${${PNAME}_Fortran_FLAGS_DEBUG} ${ECBUILD_Fortran_FLAGS_DEBUG}" )
-
 if(CMAKE_Fortran_COMPILER_ID MATCHES "Cray")
   set(checkbounds_flags   "-Rb")
   set(fpe_flags           "-Ktrap=fp")
   set(initsnan_flags      "-ei")
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
+  set(vectorization_flags "-O3 -march=native")
+  set(alloc_flags         "-fstack-arrays")
   set(checkbounds_flags   "-fcheck=bounds")
   set(fpe_flags           "-ffpe-trap=invalid,zero,overflow")
+  set(fpmodel_flags       "-ffp-contract=off -fno-fast-math")
   set(initsnan_flags      "-finit-real=snan")
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM")
@@ -42,7 +40,9 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "PGI|NVHPC")
   set(fpe_flags           "-Ktrap=fp")
   set(vectorization_flags "-O3 -fast")
-  string(REPLACE "-O2" "" ${PNAME}_Fortran_FLAGS_BIT ${${PNAME}_Fortran_FLAGS_BIT})
+  if( DEFINED ${PNAME}_Fortran_FLAGS_BIT )
+    string(REPLACE "-O2" "" ${PNAME}_Fortran_FLAGS_BIT ${${PNAME}_Fortran_FLAGS_BIT})
+  endif()
   set(checkbounds_flags   "-Mbounds")
 
 endif()

@@ -1345,9 +1345,7 @@ contains
 
     ! McICA solver currently can't store full profiles of spectral fluxes
     if (this%i_solver_sw == ISolverMcICA) then
-      if (this%iverbosesetup >= 1) then
-        write(nulout, '(a)') 'Warning: McICA solver cannot store full profiles of spectral fluxes'
-      end if
+      write(nulout, '(a)') 'Warning: McICA solver cannot store full profiles of spectral fluxes'
       this%do_save_spectral_flux = .false.
     end if
 
@@ -1653,7 +1651,7 @@ contains
   ! iverbose>=2, then information on the weighting will be provided on
   ! nulout.
   subroutine get_sw_weights(this, wavelength1, wavelength2, &
-       &                    nweights, iband, weight, weighting_name)
+       &                    nweights, iband, weight, weighting_name, solar_fraction)
 
     use radiation_io, only : nulout, nulerr, radiation_abort
     use radiation_spectral_definition, only : SolarReferenceTemperature
@@ -1668,7 +1666,9 @@ contains
     ! those bands
     integer,    intent(out)   :: iband(:)
     real(jprb), intent(out)   :: weight(:)
-    character(len=*), optional, intent(in) :: weighting_name
+    character(len=*), optional, intent(in)  :: weighting_name
+    ! Fraction of solar irradiance in this wavelength range
+    real(jprb),        optional, intent(out) :: solar_fraction
 
     real(jprb), allocatable   :: mapping(:,:)
 
@@ -1676,6 +1676,8 @@ contains
     real(jprb) :: wavenumber1, wavenumber2 ! cm-1
 
     real(jprb) :: wavenumber1_band, wavenumber2_band ! cm-1
+
+    real(jprb) :: solar_fraction_local(3)
 
     integer :: jband ! Loop index for spectral band
 
@@ -1690,8 +1692,12 @@ contains
 
     call this%gas_optics_sw%spectral_def%calc_mapping_from_bands( &
          &  [wavelength1, wavelength2], [1, 2, 3], mapping, &
-         &  use_bands=(.not. this%do_cloud_aerosol_per_sw_g_point), use_fluxes=.true.)
-
+         &  use_bands=(.not. this%do_cloud_aerosol_per_sw_g_point), use_fluxes=.true., &
+         &  solar_fraction=solar_fraction_local)
+    if (present(solar_fraction)) then
+      solar_fraction = solar_fraction_local(2)
+    end if
+    
     ! "mapping" now contains a 3*nband matrix, where mapping(2,:)
     ! contains the weights of interest.  We now find the non-zero weights
     nweights = 0
@@ -1708,9 +1714,21 @@ contains
            &  wavelength1, ' to ', wavelength2, ' m is outside shortwave band'
       call radiation_abort('Radiation configuration error')
     else if (this%iverbosesetup >= 2 .and. present(weighting_name)) then
-      write(nulout,'(a,a,a,f6.0,a,f6.0,a)') 'Spectral weights for ', &
-           &  weighting_name, ' (', wavenumber1, ' to ', &
-           &  wavenumber2, ' cm-1):'
+      if (present(solar_fraction)) then
+        if (solar_fraction > 0.0_jprb) then
+          write(nulout,'(a,a,a,f6.0,a,f6.0,a,f8.4,a)') 'Spectral weights for ', &
+               &  weighting_name, ', ', wavenumber1, ' to ', &
+               &  wavenumber2, ' cm-1 (solar fraction ', solar_fraction, '):'
+        else
+          write(nulout,'(a,a,a,f6.0,a,f6.0,a)') 'Spectral weights for ', &
+               &  weighting_name, ', ', wavenumber1, ' to ', &
+               &  wavenumber2, ' cm-1 (solar fraction not available)'
+        end if
+      else
+        write(nulout,'(a,a,a,f6.0,a,f6.0,a)') 'Spectral weights for ', &
+             &  weighting_name, ', ', wavenumber1, ' to ', &
+             &  wavenumber2, ' cm-1'
+      end if
       if (this%do_cloud_aerosol_per_sw_g_point) then
         do jband = 1, nweights
           write(nulout, '(a,i0,a,f8.4)') '  Shortwave g point ', iband(jband), ': ', weight(jband)

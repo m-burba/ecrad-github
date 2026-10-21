@@ -136,6 +136,10 @@ Fortran compiler.
    `FIATDIR=/path/to/fiat` to the `make` command line, such that the
    files `$FIATDIR/lib/libfiat.so` and
    `$FIATDIR/module/fiat/yomhook.mod` can be found at build time.
+   
+   To compile without OpenMP:
+
+	   make OMPFLAG=-DNO_OPENMP
 
 
 ## Testing
@@ -248,7 +252,7 @@ the gas optics part of the Rapid Radiative Transfer Model for GCMS
 
 Contributions to ECRAD are welcome.
 In order to do so, please open an issue where a feature request or bug can be discussed.
-Then create a pull request with your contribution and sign the [contributors license agreement (CLA)](https://bol-claassistant.ecmwf.int/ecmwf-ifs/ecrad).
+Then create a pull request with your contribution.
 
 
 ## Publications
@@ -289,4 +293,3 @@ The ecCKD gas optics scheme is described here:
  - Hogan, R. J., and M. Matricardi, 2022: a tool for generating fast
 k-distribution gas-optics models for weather and climate
 applications. J. Adv. Modeling Earth Sys., in review.
-
