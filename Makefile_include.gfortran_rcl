@@ -1,0 +1,62 @@
+# Fortran compiler executable -*- Makefile -*-
+# Makefile for gfortran compiler at DWD's RCL supercomputer
+# run: `make PROFILE=gfortran_rcl`
+# Last update of makefile modules: April 2024
+#
+
+ifdef RUN_THESE_ON_COMMAND_LINE_FIRST
+  source /usr/share/Modules/init/sh;
+  module purge
+  module load x86/default apps gcc/13.2.0 hdf5/1.10.5-x86-gnu13 netcdf4/4.9.3-x86-gnu13 aec/1.1.6-x86-gnu13
+endif
+# apps has gcc with gfortran, the rest is in x86
+
+FC=gfortran
+
+# Tell the compiler to accept C-preprocessor directives
+# TODO: remove prepocessor flags for little endian in branch dwd-master
+CPPFLAGS = -cpp -D__ECRAD_LITTLE_ENDIAN
+# compile vector code with gnu! to find bugs in vector code
+#CPPFLAGS += -DDWD_VECTOR_OPTIMIZATIONS
+#CPPFLAGS += -DDWD_REDUCTION_OPTIMIZATIONS -DDWD_TWO_STREAM_OPTIMIZATIONS -D__NEC__
+
+# Basic flags such as where to write module files. We used to have the
+# flag "-fconvert=big-endian" here because the RRTM input files are
+# big endian Fortran unformatted files, but now the file ordering has
+# been specified at the OPEN command so no compiler flags are needed.
+BASICFLAGS = -J../mod -fno-range-check
+
+# OpenMP flag; type "make OMPFLAG=-DNO_OPENMP" to compile with OpenMP
+# disabled
+OMPFLAG = -fopenmp
+
+ifndef DEBUG
+# --NORMAL CONFIGURATION--
+
+# Optimization flags
+OPTFLAGS = -O2
+# -march=native
+
+# Warning flags: all except those that warn about unused stuff
+WARNFLAGS = -Wall -Wno-unused-label -Wno-unused-dummy-argument -Wno-unused-variable
+
+# Debugging flags, such as "-g" to store debugging symbols, and
+# instructions to abort if certain floating-point exceptions occur
+DEBUGFLAGS = -g -ffpe-trap=invalid,zero,overflow
+
+else
+# --DEBUGGING CONFIGURATION--
+OPTFLAGS = -O0
+WARNFLAGS = -Wall
+DEBUGFLAGS = -g -ffpe-trap=invalid,zero,overflow -fcheck=bounds -finit-real=snan -fbacktrace
+
+endif
+
+ifdef GPROF
+# Add gprof output
+DEBUGFLAGS += -pg
+endif
+
+
+
+
